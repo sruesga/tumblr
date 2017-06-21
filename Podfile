@@ -7,18 +7,6 @@ target 'tumblr' do
 
   # Pods for tumblr
 
-  target 'tumblrTests' do
-    inherit! :search_paths
-    # Pods for testing
-  end
-
-  target 'tumblrUITests' do
-    inherit! :search_paths
-    # Pods for testing
-  end
-
-  pod 'Alamofire', '~> 4.4'
-  pod 'OAuthSwift', '~> 1.1.0'
-  pod 'OAuthSwiftAlamofire'
+  pod 'AlamofireImage'
 
 end
