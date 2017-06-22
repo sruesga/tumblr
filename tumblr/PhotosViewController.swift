@@ -11,13 +11,15 @@ import UIKit
 import AlamofireImage
 
 
-class PhotosViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class PhotosViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIScrollViewDelegate {
 
     @IBOutlet weak var tableView: UITableView!
     
     
     // 1.      2.              3.
     var posts: [[String: Any]] = []
+    var isMoreDataLoading = false
+    var refreshControl: UIRefreshControl!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -25,31 +27,62 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
         tableView.delegate = self
         tableView.dataSource = self
         
+        // Initialize a UIRefreshControl
+        refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), for: UIControlEvents.valueChanged)
+        //add refresh control to table view
+        tableView.insertSubview(refreshControl, at: 0)
+        refreshControlAction((refreshControl))
+    }
+    
+    func refreshControlAction(_ refreshControl: UIRefreshControl) {
+        fetchData(refreshControl: refreshControl)
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if !isMoreDataLoading {
+            
+            let scrollViewContentHeight = tableView.contentSize.height
+            let scrollOffsetThreshold = scrollViewContentHeight - tableView.bounds.size.height
+            
+            if (scrollView.contentOffset.y > scrollOffsetThreshold && tableView.isDragging) {
+                isMoreDataLoading = true
+                
+                loadMoreData()
+            }
+        }
+    }
+    
+    func loadMoreData() {
+        fetchData(refreshControl: nil, offset: self.posts.count)
+    }
+    
+    func fetchData(refreshControl: UIRefreshControl?, offset: Int = 0) {
+        
         // Network request snippet
-        let url = URL(string: "https://api.tumblr.com/v2/blog/humansofnewyork.tumblr.com/posts/photo?api_key=Q6vHoaVm5L1u2ZAW1fqv3Jw48gFzYVg9P0vH0VHl3GVy6quoGV")!
-        let session = URLSession(configuration: .default,    delegate: nil, delegateQueue: OperationQueue.main)
+        let url = URL(string: "https://api.tumblr.com/v2/blog/humansofnewyork.tumblr.com/posts/photo?api_key=Q6vHoaVm5L1u2ZAW1fqv3Jw48gFzYVg9P0vH0VHl3GVy6quoGV&offset=\(offset)")!
+        let session = URLSession(configuration: .default, delegate: nil, delegateQueue: OperationQueue.main)
         session.configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         let task = session.dataTask(with: url) { (data, response, error) in
             if let error = error {
                 print(error.localizedDescription)
             } else if let data = data,
                 let dataDictionary = try! JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
-//                print(dataDictionary)
                 
                 // Get the posts and store in posts property
                 
                 // Get the dictionary from the response key
                 let responseDictionary = dataDictionary["response"] as! [String: Any]
                 // Store the returned array of dictionaries in our posts property
-                self.posts = responseDictionary["posts"] as! [[String: Any]]
+                self.posts += responseDictionary["posts"] as! [[String: Any]]
                 
                 // Reload the table view
                 self.tableView.reloadData()
-
+                
+                refreshControl?.endRefreshing()
             }
         }
         task.resume()
-        // Do any additional setup after loading the view.
     }
 
     override func didReceiveMemoryWarning() {
@@ -80,6 +113,7 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
             // 4.
             let url = URL(string: urlString)
             
+            cell.photoImage.image = nil
             cell.photoImage.af_setImage(withURL: url!)
         }
         
@@ -106,8 +140,8 @@ class PhotosViewController: UIViewController, UITableViewDataSource, UITableView
             let photo = photos[0]
             let originalSize = photo["original_size"] as! [String: Any]
             let urlString = originalSize["url"] as! String
+            
             vc.photoURL = URL(string: urlString)
-        }
-        
+        }        
     }
 }
